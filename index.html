@@ -102,8 +102,15 @@
 
 window.addEventListener('DOMContentLoaded', async () => {
     try {
-        const response = await fetch('./catalog.csv');
+        const response = await fetch('./catalog.csv', { cache: 'no-store' });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
         const text = await response.text();
+
+        console.log("First 300 chars:", text.slice(0, 300));
 
         rows = text.split(/\r?\n/).map(row =>
             row.split(',').map(cell => cell.replace(/^["']|["']$/g, '').trim())
@@ -116,6 +123,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('uploadTxt').innerText = "CATALOG LOAD FAILED";
         document.getElementById('uploadTxt').style.color = "var(--error-red)";
         showStatus("Could not load catalog.csv", true);
+        console.error("Catalog load error:", err);
     }
 });
 
