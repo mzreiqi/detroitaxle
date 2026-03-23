@@ -100,9 +100,9 @@
     const mainInput = document.getElementById('mainInput');
     const status = document.getElementById('matchStatus');
 
-  window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', async () => {
     try {
-        const response = await fetch('./Shipping Identification 3-23 use for ID.csv');
+        const response = await fetch('./catalog.csv');
         const text = await response.text();
 
         rows = text.split(/\r?\n/).map(row =>
