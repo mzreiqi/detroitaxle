@@ -1,0 +1,218 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Detroit Axle | Universal Search</title>
+    <style>
+        :root { 
+            --da-blue: #0079ad; --da-dark-bg: #121212; --da-card-bg: #1e1e1e;
+            --da-input-bg: #2a2a2a; --da-border: #333333; --amazon-orange: #ff9900;
+            --ebay-blue: #0064d2; --text-main: #e0e0e0; --text-dim: #999999;
+            --error-red: #f87171; --success-green: #4ade80;
+        }
+
+        body { 
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+            background-color: var(--da-dark-bg); color: var(--text-main); 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            min-height: 100vh; margin: 0; padding: 20px;
+        }
+
+        .da-container { 
+            background: var(--da-card-bg); border: 1px solid var(--da-border);
+            border-radius: 8px; width: 500px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); 
+            text-align: center; overflow: hidden; margin-bottom: 20px;
+        }
+
+        .da-header { background-color: #1a1a1a; padding: 20px; border-bottom: 3px solid var(--da-blue); }
+        .da-logo { font-size: 22px; font-weight: bold; color: var(--da-blue); text-transform: uppercase; letter-spacing: 1px; }
+        .da-logo span { font-weight: 300; color: #fff; }
+
+        .da-body { padding: 30px; }
+
+        input, button { 
+            width: 100%; padding: 14px; margin-top: 10px; border-radius: 4px; 
+            border: 1px solid var(--da-border); background: var(--da-input-bg); color: #fff; 
+            font-size: 15px; outline: none; box-sizing: border-box; 
+        }
+
+        input:focus { border-color: var(--da-blue); }
+
+        .btn-da { background-color: var(--da-blue); color: white; border: none; font-weight: bold; margin-top: 20px; cursor: pointer; }
+        .btn-ebay { background: var(--ebay-blue); color: white; border: none; font-weight: bold; cursor: pointer; }
+        .btn-amazon { background: var(--amazon-orange); color: #111; border: none; font-weight: bold; cursor: pointer; }
+
+        .history-container { width: 500px; background: var(--da-card-bg); border: 1px solid var(--da-border); border-radius: 8px; padding: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+        th { text-align: left; color: var(--text-dim); border-bottom: 1px solid var(--da-border); padding: 8px; }
+        td { padding: 8px; border-bottom: 1px solid #222; color: #bbb; }
+        
+        .reload-btn { color: var(--da-blue); cursor: pointer; font-weight: bold; transition: color 0.2s; padding: 2px 4px; border-radius: 2px; }
+        .reload-btn:hover { color: #fff; background: rgba(0, 121, 173, 0.2); }
+
+        .mini-btn { padding: 3px 8px; font-size: 10px; border-radius: 3px; cursor: pointer; border: none; margin-right: 4px; font-weight: bold; }
+        .m-da { background: var(--da-blue); color: #fff; }
+        .m-amz { background: var(--amazon-orange); color: #000; }
+        .m-ebay { background: var(--ebay-blue); color: #fff; }
+
+        #matchStatus { font-size: 12px; margin-top: 15px; font-style: italic; min-height: 16px; font-weight: bold; transition: opacity 0.5s; opacity: 0; }
+        .upload-section { background: #1a1a1a; padding: 12px; border: 1px dashed #444; cursor: pointer; color: var(--text-dim); font-size: 12px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="da-container">
+    <div class="da-header"><div class="da-logo">DETROIT <span>AXLE</span></div></div>
+    <div class="da-body">
+        <div class="upload-section" onclick="document.getElementById('csvFile').click()">
+            <span id="uploadTxt">SYNC ONEDRIVE CATALOG</span>
+            <input type="file" id="csvFile" accept=".csv" style="display:none">
+        </div>
+
+        <input type="text" id="mainInput" placeholder="Part#, Kit, ASIN, or eBay ID..." autofocus autocomplete="off">
+
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button class="btn-ebay" id="ebayBtn" onclick="universalSearch('ebay')" disabled title="Requires CSV">EBAY</button>
+            <button class="btn-amazon" id="amzBtn" onclick="universalSearch('amazon')">AMAZON</button>
+        </div>
+        <button class="btn-da" id="daBtn" onclick="universalSearch('da')">DETROITAXLE.COM</button>
+        
+        <div id="matchStatus"></div>
+    </div>
+</div>
+
+<div class="history-container">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 11px; color: var(--text-dim); text-transform: uppercase;">Recent History</span>
+        <span onclick="clearHistory()" style="font-size: 10px; color: #f87171; cursor: pointer;">CLEAR</span>
+    </div>
+    <table id="historyTable">
+        <thead><tr><th>Input</th><th>Quick Actions</th></tr></thead>
+        <tbody id="historyBody"></tbody>
+    </table>
+</div>
+
+<script>
+    let rows = [];
+    let history = [];
+    let statusTimer;
+    const mainInput = document.getElementById('mainInput');
+    const status = document.getElementById('matchStatus');
+
+    document.getElementById('csvFile').addEventListener('change', function(e) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            rows = event.target.result.split(/\r?\n/).map(row => 
+                row.split(',').map(cell => cell.replace(/^["']|["']$/g, '').trim())
+            );
+            document.getElementById('ebayBtn').disabled = false;
+            document.getElementById('uploadTxt').innerText = "✓ CATALOG CONNECTED";
+            document.getElementById('uploadTxt').style.color = "var(--success-green)";
+        };
+        reader.readAsText(e.target.files[0]);
+    });
+
+    function showStatus(msg, isError = false) {
+        clearTimeout(statusTimer);
+        status.innerText = msg;
+        status.style.color = isError ? "var(--error-red)" : "var(--success-green)";
+        status.style.opacity = "1";
+        statusTimer = setTimeout(() => { status.style.opacity = "0"; }, 3000);
+    }
+
+    function addToHistory(inputVal) {
+        if (history.includes(inputVal)) { history = history.filter(i => i !== inputVal); }
+        history.unshift(inputVal);
+        if (history.length > 5) history.pop();
+        updateHistoryUI();
+    }
+
+    function updateHistoryUI() {
+        document.getElementById('historyBody').innerHTML = history.map(item => `
+            <tr>
+                <td><span class="reload-btn" onclick="mainInput.value='${item}';mainInput.focus();">${item}</span></td>
+                <td>
+                    <button class="mini-btn m-da" onclick="quickJump('${item}', 'da')">WEB</button>
+                    <button class="mini-btn m-ebay" onclick="quickJump('${item}', 'ebay')">EBAY</button>
+                    <button class="mini-btn m-amz" onclick="quickJump('${item}', 'amazon')">AMZ</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function clearHistory() { history = []; updateHistoryUI(); }
+
+    function quickJump(val, platform) {
+        const currentVal = mainInput.value;
+        mainInput.value = val;
+        universalSearch(platform, true);
+        mainInput.value = currentVal;
+    }
+
+    function universalSearch(platform, silent = false) {
+        const query = mainInput.value.trim();
+        const queryLow = query.toLowerCase();
+        if (!query) return;
+
+        status.style.opacity = "0";
+
+        if (platform === 'amazon' && query.length === 10) {
+            window.open(`https://www.amazon.com/dp/${query}`, '_blank');
+            if(!silent) addToHistory(query);
+            return;
+        }
+
+        if (rows.length === 0) { alert("Please load the catalog CSV file first."); return; }
+
+        let match = null;
+        // Logic: Kit (G) -> Part (H) -> eBay (B) -> ASIN (D)
+        match = rows.find(r => r[6] && r[6].toLowerCase() === queryLow); 
+        if (!match) {
+            const partRow = rows.find(r => r[7] && r[7].toLowerCase() === queryLow);
+            if (partRow) match = rows.find(r => r[6] && r[6].toLowerCase() === partRow[7].toLowerCase());
+        }
+        if (!match) match = rows.find(r => r[1] && r[1].toLowerCase() === queryLow);
+        if (!match) match = rows.find(r => r[3] && r[3].toLowerCase() === queryLow);
+
+        if (match) {
+            const invalidValues = ["n/a", "#n/a", "na", "", "0"];
+
+            // --- SPECIAL CHECK FOR WEBSITE AVAILABILITY (COL E / Index 4) ---
+            if (platform === 'da') {
+                const availableVal = match[4] ? match[4].trim().toLowerCase() : "";
+                if (invalidValues.includes(availableVal)) {
+                    showStatus("Not available on Website (Flagged in Sheet)", true);
+                    return;
+                }
+            }
+
+            const targetCol = (platform === 'ebay') ? 1 : (platform === 'amazon' ? 3 : 6);
+            let targetVal = match[targetCol] ? match[targetCol].trim() : "";
+
+            if (!targetVal || invalidValues.includes(targetVal.toLowerCase())) {
+                showStatus(`Data missing for ${platform === 'da' ? 'WEBSITE' : platform.toUpperCase()}`, true);
+                return;
+            }
+
+            let url = platform === 'ebay' ? `https://www.ebay.com/itm/${targetVal}` : 
+                      platform === 'amazon' ? `https://www.amazon.com/dp/${targetVal}` : 
+                      `https://www.detroitaxle.com/${targetVal}/`;
+            
+            window.open(url, '_blank');
+            showStatus(`Opening ${platform === 'da' ? 'WEBSITE' : platform.toUpperCase()}...`);
+            if(!silent) addToHistory(query);
+            mainInput.value = '';
+        } else {
+            showStatus("Part not found in catalog.", true);
+        }
+    }
+
+    mainInput.addEventListener('keypress', (e) => { 
+        if (e.key === 'Enter') {
+            if (mainInput.value.trim().length === 10) universalSearch('amazon'); else universalSearch('ebay');
+        }
+    });
+</script>
+</body>
+</html>
