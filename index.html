@@ -100,18 +100,24 @@
     const mainInput = document.getElementById('mainInput');
     const status = document.getElementById('matchStatus');
 
-    document.getElementById('csvFile').addEventListener('change', function(e) {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            rows = event.target.result.split(/\r?\n/).map(row => 
-                row.split(',').map(cell => cell.replace(/^["']|["']$/g, '').trim())
-            );
-            document.getElementById('ebayBtn').disabled = false;
-            document.getElementById('uploadTxt').innerText = "✓ CATALOG CONNECTED";
-            document.getElementById('uploadTxt').style.color = "var(--success-green)";
-        };
-        reader.readAsText(e.target.files[0]);
-    });
+  window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const response = await fetch('./Shipping Identification 3-23 use for ID.csv');
+        const text = await response.text();
+
+        rows = text.split(/\r?\n/).map(row =>
+            row.split(',').map(cell => cell.replace(/^["']|["']$/g, '').trim())
+        );
+
+        document.getElementById('ebayBtn').disabled = false;
+        document.getElementById('uploadTxt').innerText = "✓ CATALOG CONNECTED";
+        document.getElementById('uploadTxt').style.color = "var(--success-green)";
+    } catch (err) {
+        document.getElementById('uploadTxt').innerText = "CATALOG LOAD FAILED";
+        document.getElementById('uploadTxt').style.color = "var(--error-red)";
+        showStatus("Could not load catalog.csv", true);
+    }
+});
 
     function showStatus(msg, isError = false) {
         clearTimeout(statusTimer);
